@@ -2,15 +2,15 @@
 % Please edit documentation in R/RcppExports.R
 \name{wt_mean}
 \alias{wt_mean}
-\title{wt_mean}
+\title{Calculate a weighted mean}
 \usage{
 wt_mean(x, w)
 }
 \arguments{
-\item{x}{x}
+\item{x}{matrix of derivatives}
 
-\item{w}{w}
+\item{w}{vector of weights}
 }
 \description{
-wt_mean
+Calculate a weighted mean
 }

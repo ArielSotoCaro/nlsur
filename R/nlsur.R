@@ -1,23 +1,3 @@
-# Copyright (c) 2017 Jan Marvin Garbuszus
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-
 #' Non-Linear Seemingly Unrelated Regression
 #'
 #' \code{.nlsur()} is a function for estimation of a non-linear seemingly
@@ -43,11 +23,8 @@
 #' @param qrsolve is a logica, if TRUE \code{qr.coef(qr(x), r)} is called which
 #' should be the most robust way for estimation of nls. For this all equations
 #' will be rbinded, which might lead to memory bottlenecks.
-#' @param MASS is a logical, if TRUE \code{lm.gls()} is called for estimation of
-#' a linear regression with a weighting matrix. Otherwise Rs matrix functions
-#' will be used. Estimation results with MASS might be more stable, but it is
-#' unable to handle a \code{Matrix::Diagonal()}. This will be converted with
-#' \code{as.matrix()} which can be quite RAM consuming.
+#' @param MASS is a logical, if TRUE \code{lm_gls()} is called for estimation of
+#' a linear regression with a weighting matrix.
 #' @param trace is a logical. If TRUE the current iterations SSR is called.
 #' @param eps the epislon used for convergence in nlsur(). Default is 1e-5.
 #' @param tau is another convergence variable. Default is 1e-3.
@@ -93,7 +70,7 @@
   theta[is.na(theta)] <- 0
 
   # check if S-matrix was provided for estimation of nls step
-  if (nls){
+  if (nls) {
     if (is.null(S)) {
       if (trace)
         cat("create initial weight matrix Sigma.\n")
@@ -151,8 +128,8 @@
   if (initial) {
     k <- as.integer(lapply(X = x, FUN = rankMatrix))
 
-    z$k            <- k
-    z$df           <- n - k
+    z$k  <- k
+    z$df <- n - k
   }
 
   r <- do.call(cbind, ri)
@@ -164,18 +141,17 @@
   }
 
   # eval might return NaN
-  if ( any (is.nan(x))){
+  if ( any (is.nan(x))) {
     stop("NA/NaN/Inf in derivation found. Most likely due to artificial data.")
   }
 
 
   # Evaluate initial ssr
-  ssr.old <- calc_ssr(r, s, wts)
+  ssr.old <- ssr_est(r, s, wts)
 
   # Print initial ssr
   if (trace)
     cat("Initial SSR: ", ssr.old, "\n")
-
 
 
   # values for initial alpha and its divisor
@@ -188,7 +164,7 @@
   while (!conv) {
 
     # convergence was not reached given maxiter
-    if (itr == maxiter){
+    if (itr == maxiter) {
       message(paste(itr, "nls iterations and convergence not reached."),
               paste("Last theta is: \n", theta, "\n"))
       return(0)
@@ -227,7 +203,7 @@
       } else {
 
         # Weighted regression of residuals on derivs ---
-        theta.new <- calc_reg(x, r, qS, wts, length(theta), 1, tol)
+        theta.new <- wls_est(x, r, qS, wts, length(theta), 1, tol)
 
       }
 
@@ -295,9 +271,9 @@
       # x[,colnames(x) %in% theta_na] <- NA
 
       # Reevaluation of ssr
-      ssr <- calc_ssr(r, s, wts)
+      ssr <- ssr_est(r, s, wts)
 
-      if (is.nan(ssr)){
+      if (is.nan(ssr)) {
         ssr <- Inf
       }
 
@@ -346,15 +322,15 @@
 
   ## Create covb matrix ##
 
-  if (qrsolve | MASS){
+  if (qrsolve | MASS) {
 
     r <- do.call(cbind, ri)
     r <- matrix(r, ncol = 1)
 
     covb <- lm_gls(X = x, Y = r, W = S, neqs = neqs, tol = tol, covb = TRUE)
   } else {
-    # get xdx from calc_reg
-    covb <- calc_reg(x, r, qS, wts, length(theta), 0, tol)
+    # get xdx from wls
+    covb <- wls_est(x, r, qS, wts, length(theta), 0, tol)
   }
 
   # # if singularities are detected covb will contain cols and rows with NA
@@ -363,8 +339,8 @@
 
   # calculate robust standard errors
   if (robust) {
-    # get xdu from calc_robust
-    xdu <- calc_robust(x, r, qS, wts, length(theta))
+    # get xdu from cov_robust
+    xdu <- cov_robust(x, r, qS, wts, length(theta))
 
     # only good rows
     xdu <- xdu[!is.na(theta), !is.na(theta)]
@@ -422,9 +398,9 @@
 #' @param S is a weight matrix used for evaluation. If no weight matrix is
 #' provided the identity matrix I will be used.
 #' @param qrsolve logical
-#' @param MASS is a logical wheather the MASS::lm.gls() function should be used
-#' for weighted Regression. This can cause sever RAM usage as the weight matrix
-#' tend to be huge (n-equations * n-rows).
+#' @param MASS is a logical wheather an R function similar to the MASS::lm.gls()
+#' function should be used for weighted Regression. This can cause sever RAM
+#' usage as the weight matrix tend to be huge (n-equations * n-rows).
 #' @param weights Additional weight vector.
 #' @param maxiter Maximum number of iterations.
 #' @param val If no start values supplied, create them with this start value.
@@ -529,9 +505,9 @@ nlsur <- function(eqns, data, startvalues, type=NULL, S = NULL,
   options("mc.cores" = multicores )
 
   # Check if eqns might be a formula
-  if (!is.list(eqns)){
+  if (!is.list(eqns)) {
     # check if formula provided as string
-    if (!is.formula(eqns)){
+    if (!is.formula(eqns)) {
       gl <- as.formula(eqns)
 
       if (!is.formula(gl))
@@ -701,7 +677,7 @@ nlsur <- function(eqns, data, startvalues, type=NULL, S = NULL,
       {
 
         # if convergence is not reached
-        if (iter == maxiter){
+        if (iter == maxiter) {
 
           msg <- paste(iter, "nls iterations and convergence not reached.\n",
                        "Last theta is: \n")
@@ -724,7 +700,7 @@ nlsur <- function(eqns, data, startvalues, type=NULL, S = NULL,
         theta <- coef(z)
 
         s   <- chol(qr.solve(S, tol = tol))
-        rss <- calc_ssr(r, s, data$w)
+        rss <- ssr_est(r, s, data$w)
 
         iter <- iter +1
 
@@ -876,17 +852,17 @@ summary.nlsur <- function(object, noconst = TRUE, multicores, ...) {
 
 
   #### Estimation of covariance matrix, standard errors and z/t-values ####
-  lhs     <- list()
-  scale   <- vector("numeric", length=neqs)      # scalefactor
-  div     <- vector("numeric", length=neqs)      # divisor
-  wi      <- vector("numeric", length=neqs)      # normalized wts
-  ssr     <- vector("numeric", length=neqs)      # sum of squared residuals
-  mss     <- vector("numeric", length=neqs)
-  mse     <- vector("numeric", length=neqs)      # mean square error
-  rmse    <- vector("numeric", length=neqs)      # root of mse
-  mae     <- vector("numeric", length=neqs)      # mean absolute error
-  r2      <- vector("numeric", length=neqs)      # R-squared value
-  adjr2   <- vector("numeric", length=neqs)      # adjusted R-squared value
+  lhs   <- list()
+  scale <- vector("numeric", length=neqs)      # scalefactor
+  div   <- vector("numeric", length=neqs)      # divisor
+  wi    <- vector("numeric", length=neqs)      # normalized wts
+  ssr   <- vector("numeric", length=neqs)      # sum of squared residuals
+  mss   <- vector("numeric", length=neqs)
+  mse   <- vector("numeric", length=neqs)      # mean square error
+  rmse  <- vector("numeric", length=neqs)      # root of mse
+  mae   <- vector("numeric", length=neqs)      # mean absolute error
+  r2    <- vector("numeric", length=neqs)      # R-squared value
+  adjr2 <- vector("numeric", length=neqs)      # adjusted R-squared value
 
 
   nlsur_coef <- new.env(hash = TRUE)
@@ -912,26 +888,26 @@ summary.nlsur <- function(object, noconst = TRUE, multicores, ...) {
     lhs_i <- lhs[[i]]
 
     if (length(lhs_i) < NROW(data))
-      lhs_i <- rep(lhs_i, NROW(data))
+      lhs_i  <- rep(lhs_i, NROW(data))
 
     ssr[i]   <- sum( r[,i]^2 * w) * scale[i]
 
     # No constant found
     if (hasconst[i]) {
-      wi       <- w/sum(w) * n[i]
+      wi     <- w/sum(w) * n[i]
 
-      lhs_wm   <- wt_mean(x = lhs_i, w = wi)
-      wvar     <- (1/div[i]) * sum( wi * (lhs_i - lhs_wm)^2)
-      mss[i]   <- wvar * div[i] - ssr[i]
+      lhs_wm <- wt_mean(x = lhs_i, w = wi)
+      wvar   <- (1/div[i]) * sum( wi * (lhs_i - lhs_wm)^2)
+      mss[i] <- wvar * div[i] - ssr[i]
     } else{
-      mss[i]   <- sum(w * lhs_i^2) * scale[i] - ssr[i]
+      mss[i] <- sum(w * lhs_i^2) * scale[i] - ssr[i]
     }
 
     mse[i]   <- ssr[i] / n[i]
     rmse[i]  <- sqrt(mse[i])
     mae[i]   <- sum(abs(r[, i]))/n[i]
 
-    r2[i]  <- mss[i] / (mss[i] + ssr[i])
+    r2[i]    <- mss[i] / (mss[i] + ssr[i])
 
     # correct adjr2 if n - df = 1
     if (div[i] > 1) {
@@ -977,12 +953,12 @@ summary.nlsur <- function(object, noconst = TRUE, multicores, ...) {
   zi <- as.data.frame(zi)
 
   # replace all character(0) if a equation does not contain a constant
-  for (i in 1:neqs){
+  for (i in 1:neqs) {
     eqconst[[i]][identical(eqconst[[i]], character(0))] <- ""
   }
 
   # add constant variables to summary
-  if (any(hasconst)){
+  if (any(hasconst)) {
     eqconst <- do.call(rbind, eqconst)
     neqconst <- ncol(eqconst)
 
@@ -996,7 +972,7 @@ summary.nlsur <- function(object, noconst = TRUE, multicores, ...) {
   # rest with blanks
   if (any(hasconst)) {
     cnst <- c("Const")
-    if (neqconst>1){
+    if (neqconst>1) {
       cnst <- c(cnst, rep(x = "", (neqconst-1)))
     }
   }
@@ -1020,11 +996,11 @@ summary.nlsur <- function(object, noconst = TRUE, multicores, ...) {
     cnames
   )
 
-  ans$residuals    <- residuals
-  ans$nlsur        <- z$nlsur
-  ans$zi           <- zi
-  ans$weights      <- weights(z)
-  ans$cov          <- z$cov
+  ans$residuals <- residuals
+  ans$nlsur     <- z$nlsur
+  ans$zi        <- zi
+  ans$weights   <- weights(z)
+  ans$cov       <- z$cov
 
   # for ifgnls add log likelihood
   if (ans$nlsur == "IFGNLS")

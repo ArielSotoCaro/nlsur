@@ -2,15 +2,26 @@
 % Please edit documentation in R/RcppExports.R
 \name{arma_reshape}
 \alias{arma_reshape}
-\title{arma_reshape}
+\title{Reshape matrix for blockwise WLS estimation}
 \usage{
 arma_reshape(mm, sizetheta)
 }
 \arguments{
-\item{mm}{mm}
+\item{mm}{a matrix}
 
-\item{sizetheta}{sizetheta}
+\item{sizetheta}{integer of length(theta) to shrink mm into}
 }
 \description{
-arma_reshape
+reshape mm for blockwise multiplication in wls_est
+}
+\examples{
+mm <- matrix(c(11,21,31,41,
+ 12,22,32,42,
+ 13,23,33,43,
+ 14,24,34,44),
+ ncol = 4)
+
+mm_a <- arma_reshape(mm, 2)
+
+mm_m <- matrix(t(mm), nrow = 2, byrow =T )
 }
