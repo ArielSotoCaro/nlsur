@@ -1080,6 +1080,7 @@ vcov.summary.nlsur <- function(object, ...) {
 #'
 #' @param object is an nlsur estimation result.
 #' @param newdata an optional data frame for which the prediction is evaluated.
+#' @param multicores number of cores used for parallel
 #' @param ... further arguments for predict. At present no optional arguments
 #'  are used.
 #'
@@ -1094,7 +1095,16 @@ vcov.summary.nlsur <- function(object, ...) {
 #' @importFrom parallel mclapply
 #'
 #' @export
-predict.nlsur <- function(object, newdata, ...) {
+predict.nlsur <- function(object, newdata, multicores, ...) {
+
+
+  mc <- getOption("mc.cores")
+
+  # set multicore process
+  if (missing(multicores))
+    multicores <- detectCores()-1
+
+  options("mc.cores" = multicores )
 
   eqs <- object$model
 
@@ -1115,6 +1125,8 @@ predict.nlsur <- function(object, newdata, ...) {
   fit <- mclapply(X = eqns_rhs, FUN = eval, envir = data2)
   fit <- data.frame(fit)
   names(fit) <- vnam
+
+  options("mc.cores" = mc )
 
   fit
 }
